@@ -8,6 +8,15 @@
 #include "proc.h"
 
 int
+sys_info(void)
+{
+  int i;
+  if(argint(0, &i) < 0)
+    return -1;
+  return info(i);
+}
+
+int
 sys_fork(void)
 {
   return fork();
