@@ -93,6 +93,8 @@ found:
   p->pid = nextpid++;
   p->sys_num = 0;
   p->init_sz = PGSIZE;
+  p->stride = 0;
+  p->cur_stride = -1;
   pushcli();
   mycpu()->num_ps = nextpid - 1;
   popcli();
@@ -331,6 +333,7 @@ void
 scheduler(void)
 {
   struct proc *p;
+  struct proc *p2, *p_temp;
   struct cpu *c = mycpu();
   c->proc = 0;
 
@@ -340,13 +343,23 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
+
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
-
+      p_temp = p;  //just to initialize it
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
+      for (p2 = ptable.proc; p2 < &ptable.proc[NPROC]; p2++) {
+        if(p2->state != RUNNABLE)
+          continue;
+        if (p2->cur_stride == 0) {
+          p_temp = p2->cur_stride < p_temp->cur_stride ? p2:p_temp;
+        }
+      }
+      p_temp->cur_stride += p_temp->stride;
+      p = p_temp;
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
@@ -480,6 +493,14 @@ wakeup(void *chan)
   wakeup1(chan);
   release(&ptable.lock);
 }
+
+int ticket(int i)
+{
+  myproc()->stride = i;
+  myproc()->cur_stride = 0;
+  return 0;
+}
+
 int
 info(int i)
 {

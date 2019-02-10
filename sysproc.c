@@ -6,6 +6,14 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "proc.h"
+int
+sys_ticket(void)
+{
+  int i;
+  if (argint(0, &i) < 0)
+    return -1;
+  return ticket(i);
+}
 
 int
 sys_info(void)
