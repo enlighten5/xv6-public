@@ -431,7 +431,7 @@ scheduler(void)
         }
       }
       p_temp->cur_stride += p_temp->stride;
-      p_temp->sched_times += 1;
+      // p_temp->sched_times += 1;
       p = p_temp;
 #endif
 #ifdef LOTTERY
@@ -456,7 +456,9 @@ scheduler(void)
       // Process is done running for now.
       // It should have changed its p->state before coming back.
       c->proc = 0;
+#ifdef LOTTERY
       break;
+#endif
     }
     release(&ptable.lock);
 
