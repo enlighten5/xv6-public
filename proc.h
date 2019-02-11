@@ -54,6 +54,7 @@ struct proc {
   int sys_num;                 // Number of syscall used
   int stride;                  // Stride of this process
   int cur_stride;              // Current stride
+  int sched_times;             // time of being sched
 };
 
 // Process memory is laid out contiguously, low addresses first:

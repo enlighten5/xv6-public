@@ -95,6 +95,7 @@ found:
   p->init_sz = PGSIZE;
   p->stride = 0;
   p->cur_stride = -1;
+  p->sched_times = 0;
   pushcli();
   mycpu()->num_ps = nextpid - 1;
   popcli();
@@ -238,8 +239,15 @@ void
 exit(void)
 {
   struct proc *curproc = myproc();
-  struct proc *p;
+  struct proc *p, *p2;
   int fd;
+  acquire(&ptable.lock);
+  for(p2 = ptable.proc; p2 < &ptable.proc[NPROC]; p2++){
+    if ((p2->cur_stride > 0)&&(p2->pid != 0)) {
+      cprintf("process_num is: %d, scheduled time: %d\n", p2->pid, p2->sched_times);
+    }
+  }
+  release(&ptable.lock);
 
   if(curproc == initproc)
     panic("init exiting");
@@ -354,11 +362,12 @@ scheduler(void)
       for (p2 = ptable.proc; p2 < &ptable.proc[NPROC]; p2++) {
         if(p2->state != RUNNABLE)
           continue;
-        if (p2->cur_stride == 0) {
+        if (p2->cur_stride > 0) {
           p_temp = p2->cur_stride < p_temp->cur_stride ? p2:p_temp;
         }
       }
       p_temp->cur_stride += p_temp->stride;
+      p_temp->sched_times += 1;
       p = p_temp;
       c->proc = p;
       switchuvm(p);
@@ -496,8 +505,9 @@ wakeup(void *chan)
 
 int ticket(int i)
 {
+  i = 10000 / i;
   myproc()->stride = i;
-  myproc()->cur_stride = 0;
+  myproc()->cur_stride = i;
   return 0;
 }
 
