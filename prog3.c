@@ -30,8 +30,8 @@ int Scheduler(void)
     int pid;
     int i, j, k;
 
-    ticket(1000);
-    for (i = 0; i < 10; i++)
+    ticket(60);
+    for (i = 0; i < 3; i++)
     {
         pid = fork();
         if (pid > 0)
@@ -41,7 +41,7 @@ int Scheduler(void)
         else if (pid == 0)
         {
 
-            ticket(1000 - 900 * (i%2));
+            ticket(30 - 10 * i);
             for (j = 0; j < 50000; j++)
             {
                 for (k = 0; k < 50000; k++)
@@ -49,7 +49,7 @@ int Scheduler(void)
                     asm("nop");
                 }
             }
-            printf(1, " \n  child# %d with %d tickets has finished!  \n ", getpid(), 1000 - 500 * (i%2));
+            printf(1, " \n  child# %d with %d tickets has finished!  \n ", getpid(), 30 - 10 * i);
             exit();
         }
         else

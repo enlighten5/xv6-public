@@ -347,7 +347,7 @@ lottery_get_total_tickets(void)
   return sum;
 }
 
-long randstate = 0;
+long randstate = 2333;
 long
 rand()
 {
