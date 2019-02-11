@@ -52,8 +52,10 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   int sys_num;                 // Number of syscall used
-  int stride;                  // Stride of this process
+  int stride;                  // Stride/ticket of this process
   int cur_stride;              // Current stride
+  int shed_time;               // Times of being scheduled of this process
+  int run_on_cpus[4];          // scheduled times per CPU
 };
 
 // Process memory is laid out contiguously, low addresses first:
