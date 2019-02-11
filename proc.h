@@ -54,7 +54,7 @@ struct proc {
   int sys_num;                 // Number of syscall used
   int stride;                  // Stride/ticket of this process
   int cur_stride;              // Current stride
-  int shed_time;               // Times of being scheduled of this process
+  int sched_times;               // Times of being scheduled of this process
   int run_on_cpus[4];          // scheduled times per CPU
 };
 
