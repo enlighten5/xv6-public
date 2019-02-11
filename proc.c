@@ -93,7 +93,7 @@ found:
   p->pid = nextpid++;
   p->sys_num = 0;
   p->init_sz = PGSIZE;
-  p->shed_time = 0;
+  p->sched_times = 0;
   memset(p->run_on_cpus, 0, sizeof(int)*4);
 #ifdef STRIDE
   p->stride = 0;
@@ -246,8 +246,10 @@ void
 exit(void)
 {
   struct proc *curproc = myproc();
-  struct proc *p, *p2;
+  struct proc *p;
   int fd;
+#ifdef STRIDE
+  struct proc *p2;
   acquire(&ptable.lock);
   for(p2 = ptable.proc; p2 < &ptable.proc[NPROC]; p2++){
     if ((p2->cur_stride > 0)&&(p2->pid != 0)) {
@@ -255,6 +257,7 @@ exit(void)
     }
   }
   release(&ptable.lock);
+#endif
 
   if(curproc == initproc)
     panic("init exiting");
@@ -287,7 +290,7 @@ exit(void)
   }
 
   // Jump into the scheduler, never to return.
-#if (defined STRIDE) || (defined LOTTERY)
+#ifdef LOTTERY
   procdump();
 #endif
   curproc->state = ZOMBIE;
@@ -442,7 +445,7 @@ scheduler(void)
       // lottery_ticket++;
 #endif
       c->proc = p;
-      p->shed_time++;
+      p->sched_times++;
       p->run_on_cpus[c->apicid]++;
       switchuvm(p);
       p->state = RUNNING;
@@ -580,7 +583,9 @@ wakeup(void *chan)
 
 int ticket(int i)
 {
+#ifdef STRIDE
   i = 10000 / i;
+#endif
   myproc()->stride = i;
   myproc()->cur_stride = i;
   return 0;
@@ -673,7 +678,7 @@ procdump(void)
     else
       state = "???";
 #if (defined STRIDE) || (defined LOTTERY)
-    cprintf("From  %s-%d: %d %s %s shed_time=%d ticket=%d cpus[%d, %d, %d, %d]", myproc()->name, myproc()->pid, p->pid, state, p->name, p->shed_time, p->stride, p->run_on_cpus[0], p->run_on_cpus[1], p->run_on_cpus[2], p->run_on_cpus[3]);
+    cprintf("From  %s-%d: %d %s %s sched_times=%d ticket=%d cpus[%d, %d, %d, %d]", myproc()->name, myproc()->pid, p->pid, state, p->name, p->sched_times, p->stride, p->run_on_cpus[0], p->run_on_cpus[1], p->run_on_cpus[2], p->run_on_cpus[3]);
 #else
     cprintf("%d %s %s", p->pid, state, p->name);
 #endif
