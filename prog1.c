@@ -1,3 +1,4 @@
+// This test case is designed for stride scheduler
 #include   "types.h"
 #include   "user.h"
 

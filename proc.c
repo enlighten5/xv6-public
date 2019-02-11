@@ -93,7 +93,14 @@ found:
   p->pid = nextpid++;
   p->sys_num = 0;
   p->init_sz = PGSIZE;
+  p->sched_times = 0;
+  memset(p->run_on_cpus, 0, sizeof(int)*4);
+#ifdef STRIDE
   p->stride = 0;
+#endif
+#ifdef LOTTERY
+  p->stride = 10;
+#endif
   p->cur_stride = -1;
   p->sched_times = 0;
   pushcli();
@@ -239,8 +246,10 @@ void
 exit(void)
 {
   struct proc *curproc = myproc();
-  struct proc *p, *p2;
+  struct proc *p;
   int fd;
+#ifdef STRIDE
+  struct proc *p2;
   acquire(&ptable.lock);
   for(p2 = ptable.proc; p2 < &ptable.proc[NPROC]; p2++){
     if ((p2->cur_stride > 0)&&(p2->pid != 0)) {
@@ -248,6 +257,7 @@ exit(void)
     }
   }
   release(&ptable.lock);
+#endif
 
   if(curproc == initproc)
     panic("init exiting");
@@ -280,6 +290,9 @@ exit(void)
   }
 
   // Jump into the scheduler, never to return.
+#ifdef LOTTERY
+  procdump();
+#endif
   curproc->state = ZOMBIE;
   sched();
   panic("zombie exit");
@@ -329,6 +342,31 @@ wait(void)
   }
 }
 
+#ifdef LOTTERY
+int
+lottery_get_total_tickets(void)
+{
+  struct proc *p;
+  int sum = 0;
+
+  // only count runnable processes
+  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  {
+    if (p->state == RUNNABLE)
+      sum += p->stride;
+  }
+  return sum;
+}
+
+long randstate = 2333;
+long
+rand()
+{
+  randstate = ticks * 1664525 + 1013904223;
+  return randstate;
+}
+#endif
+
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -341,8 +379,16 @@ void
 scheduler(void)
 {
   struct proc *p;
+#ifdef STRIDE
   struct proc *p2, *p_temp;
+#endif
+#ifdef LOTTERY
+  int lottery_count = 0;
+  long lottery_ticket = 0;
+  int total_tickets = 0;
+#endif
   struct cpu *c = mycpu();
+  cprintf("Scheduler is running on cpu-%d\n", (int)c->apicid);
   c->proc = 0;
 
   for(;;){
@@ -352,9 +398,27 @@ scheduler(void)
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
 
+#ifdef LOTTERY
+    // reset
+    lottery_ticket = 0;
+    lottery_count = 0;
+    total_tickets = lottery_get_total_tickets();
+    if (total_tickets == 0) // if no process to run
+    {
+      release(&ptable.lock);
+      continue;
+    }
+    // total_tickets = 1;
+
+    lottery_ticket = rand() % total_tickets;
+    // lottery_ticket =1;
+#endif
+
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
+
+#ifdef STRIDE
       p_temp = p;  //just to initialize it
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
@@ -367,9 +431,22 @@ scheduler(void)
         }
       }
       p_temp->cur_stride += p_temp->stride;
-      p_temp->sched_times += 1;
+      // p_temp->sched_times += 1;
       p = p_temp;
+#endif
+#ifdef LOTTERY
+      // find the winner
+      if ((lottery_count + p->stride) < lottery_ticket)
+      {
+        lottery_count += p->stride;
+        continue;
+      }
+      // lottery_count++;
+      // lottery_ticket++;
+#endif
       c->proc = p;
+      p->sched_times++;
+      p->run_on_cpus[c->apicid]++;
       switchuvm(p);
       p->state = RUNNING;
 
@@ -379,6 +456,9 @@ scheduler(void)
       // Process is done running for now.
       // It should have changed its p->state before coming back.
       c->proc = 0;
+#ifdef LOTTERY
+      break;
+#endif
     }
     release(&ptable.lock);
 
@@ -505,7 +585,9 @@ wakeup(void *chan)
 
 int ticket(int i)
 {
+#ifdef STRIDE
   i = 10000 / i;
+#endif
   myproc()->stride = i;
   myproc()->cur_stride = i;
   return 0;
@@ -516,9 +598,16 @@ info(int i)
 {
   int result;
   if (i == 1){
-    pushcli();
-    result = mycpu()->num_ps;
-    popcli();
+    // pushcli();
+    // result = mycpu()->num_ps;
+    // popcli();
+    struct proc *p;
+    result = 0;
+    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+    {
+      if (p->state != UNUSED)
+        result++;
+    }
     cprintf("the number of process is: %d\n", result);
     return 0;
   }
@@ -590,7 +679,11 @@ procdump(void)
       state = states[p->state];
     else
       state = "???";
+#if (defined STRIDE) || (defined LOTTERY)
+    cprintf("From  %s-%d: %d %s %s sched_times=%d ticket=%d cpus[%d, %d, %d, %d]", myproc()->name, myproc()->pid, p->pid, state, p->name, p->sched_times, p->stride, p->run_on_cpus[0], p->run_on_cpus[1], p->run_on_cpus[2], p->run_on_cpus[3]);
+#else
     cprintf("%d %s %s", p->pid, state, p->name);
+#endif
     if(p->state == SLEEPING){
       getcallerpcs((uint*)p->context->ebp+2, pc);
       for(i=0; i<10 && pc[i] != 0; i++)
