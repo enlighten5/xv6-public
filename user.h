@@ -23,8 +23,8 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
-int info(int);
-int ticket(int);
+int info(int);//cs202
+int ticket(int);//cs202
 
 // ulib.c
 int stat(const char*, struct stat*);

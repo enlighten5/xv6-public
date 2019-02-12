@@ -29,5 +29,5 @@ SYSCALL(getpid)
 SYSCALL(sbrk)
 SYSCALL(sleep)
 SYSCALL(uptime)
-SYSCALL(info)
-SYSCALL(ticket)
+SYSCALL(info)//cs202
+SYSCALL(ticket)//cs202

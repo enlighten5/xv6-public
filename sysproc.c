@@ -6,6 +6,7 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "proc.h"
+//cs202
 int
 sys_ticket(void)
 {
@@ -14,7 +15,7 @@ sys_ticket(void)
     return -1;
   return ticket(i);
 }
-
+//cs202
 int
 sys_info(void)
 {

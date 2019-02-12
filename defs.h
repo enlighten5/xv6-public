@@ -120,8 +120,8 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
-int             info(int);
-int             ticket(int);
+int             info(int);//cs202
+int             ticket(int);//cs202
 // swtch.S
 void            swtch(struct context**, struct context*);
 

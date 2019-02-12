@@ -20,5 +20,5 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
-#define SYS_info   22
-#define SYS_ticket 23
+#define SYS_info   22//cs202
+#define SYS_ticket 23//cs202

@@ -51,6 +51,7 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  //cs202
   int sys_num;                 // Number of syscall used
   int stride;                  // Stride/ticket of this process
   int cur_stride;              // Current stride
