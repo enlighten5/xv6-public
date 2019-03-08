@@ -88,6 +88,8 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->tid = 0;
+  p->curthread = 0;
 
   release(&ptable.lock);
 
@@ -221,52 +223,128 @@ fork(void)
   return pid;
 }
 
+int clone(void *stack, int size)
+{
+    struct proc *curproc = myproc();
+    struct proc *np, *parent;
+    int i, pid;
+
+    // Allocate process in ptable.
+    if((np = allocproc()) == 0){
+        cprintf("Fail to allocproc in clone()");
+        return -1;
+    }
+    np->pgdir = curproc->pgdir;
+    np->sz = curproc->sz;
+    parent = curproc;
+    np->tid = ++curproc->curthread;
+    //Zhenxiao
+    while (parent->tid != 0){ // tid == 0 means it is not a thread but a process
+        parent = parent->parent;
+    }
+    np->parent = parent;
+    *np->tf = *curproc->tf;
+
+    // Clear %eax so that fork returns 0 in the child.
+    np->tf->eax = 0;
+    // Set up register Zhenxiao
+    np->tf->ebp = (int)stack + size;
+    np->tf->esp = np->tf->ebp - (*(uint *)curproc->tf->ebp - curproc->tf->esp);//2* sizeof(int *);
+    memcmp((void *)np->tf->esp, (void *)curproc->tf->esp, *(uint *)curproc->tf->ebp - curproc->tf->esp);
+
+    for(i = 0; i < NOFILE; i++)
+        if(curproc->ofile[i])
+          np->ofile[i] = filedup(curproc->ofile[i]);
+    //Zhenxiao
+    np->cwd = curproc->cwd;
+
+    safestrcpy(np->name, curproc->name, sizeof(curproc->name));
+
+    pid = np->pid;
+
+    acquire(&ptable.lock);
+
+    np->state = RUNNABLE;
+
+    release(&ptable.lock);
+
+    return pid;
+
+
+}
+
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait() to find out it exited.
 void
 exit(void)
 {
-  struct proc *curproc = myproc();
-  struct proc *p;
-  int fd;
+    struct proc *curproc = myproc();
+    struct proc *p;
+    int fd;
+    int hasThreadChild =0;
 
-  if(curproc == initproc)
-    panic("init exiting");
+    if(curproc == initproc)
+        panic("init exiting");
+    // Loop over process table looking for a child who is a thread.
+    acquire(&ptable.lock);
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+        if(p->state != RUNNABLE)
+            continue;
+        if(p->parent == curproc&&p->tid>0)
+            hasThreadChild = 1;
 
-  // Close all open files.
-  for(fd = 0; fd < NOFILE; fd++){
-    if(curproc->ofile[fd]){
-      fileclose(curproc->ofile[fd]);
-      curproc->ofile[fd] = 0;
     }
-  }
+    release(&ptable.lock);
 
-  begin_op();
-  iput(curproc->cwd);
-  end_op();
-  curproc->cwd = 0;
+    if(hasThreadChild == 0){
+        if(curproc->tid == 0){//This is a procss with no child who is thread
+        // Close all open files.
+        for(fd = 0; fd < NOFILE; fd++){
+            if(curproc->ofile[fd]){
+                fileclose(curproc->ofile[fd]);
+                curproc->ofile[fd] = 0;
+          }
+        }
+        begin_op();
+        iput(curproc->cwd);
+        end_op();
+        curproc->cwd = 0;
 
-  acquire(&ptable.lock);
+        acquire(&ptable.lock);
 
-  // Parent might be sleeping in wait().
-  wakeup1(curproc->parent);
+        // Parent might be sleeping in wait().
+        wakeup1(curproc->parent);
 
-  // Pass abandoned children to init.
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(p->parent == curproc){
-      p->parent = initproc;
-      if(p->state == ZOMBIE)
-        wakeup1(initproc);
+        // Pass abandoned children to init.
+        for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+            if(p->parent == curproc){
+                p->parent = initproc;
+                if(p->state == ZOMBIE)
+                    wakeup1(initproc);
+            }
+        }
+
+        // Jump into the scheduler, never to return.
+        curproc->state = ZOMBIE;
+        sched();
+        panic("zombie exit");
+        } else if(curproc->tid>0){
+            //This is a thread, thread has no child, set it to zombie
+            acquire(&ptable.lock);
+            wakeup1(curproc->parent);
+            curproc->state = ZOMBIE;
+            sched();
+            panic("ZOMBIE exit");
+        }
+    } else{
+        cprintf("This process has thread, wait it and do nothing\n");
+        acquire(&ptable.lock);
+        curproc->state = RUNNABLE;
+        sched();
+        panic("This should not return to here");
     }
-  }
-
-  // Jump into the scheduler, never to return.
-  curproc->state = ZOMBIE;
-  sched();
-  panic("zombie exit");
 }
-
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
 int
@@ -282,6 +360,8 @@ wait(void)
     havekids = 0;
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->parent != curproc)
+        continue;
+      if(p->tid > 0)
         continue;
       havekids = 1;
       if(p->state == ZOMBIE){

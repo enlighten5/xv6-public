@@ -12,6 +12,16 @@ sys_fork(void)
 {
   return fork();
 }
+int
+sys_clone(void){
+  int size;
+  void *stack;
+  if(argint(1,&size)<0)
+    return -1;
+  if(argptr(0, (char **)&stack, size))
+    return -1;
+  return clone(stack, size);
+}
 
 int
 sys_exit(void)
