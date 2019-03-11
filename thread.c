@@ -13,7 +13,6 @@
 #include "thread.h"
 
 
-
 int
 thread_create(void *(*routine)(void*), void *arg){
     void *stack = malloc(PGSIZE*2);//page align

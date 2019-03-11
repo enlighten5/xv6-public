@@ -248,9 +248,24 @@ int clone(void *stack, int size)
     // Clear %eax so that fork returns 0 in the child.
     np->tf->eax = 0;
     // Set up register Zhenxiao
-    np->tf->ebp = (int)stack + size;
-    np->tf->esp = np->tf->ebp - (*(uint *)curproc->tf->ebp - curproc->tf->esp);//2* sizeof(int *);
-    memcmp((void *)np->tf->esp, (void *)curproc->tf->esp, *(uint *)curproc->tf->ebp - curproc->tf->esp);
+    //np->tf->ebp = (int)stack + size;
+    //np->tf->esp = np->tf->ebp - (curproc->tf->ebp - curproc->tf->esp);//2* sizeof(int *);
+    //np->tf->esp = np->tf->ebp - 2* sizeof(int *);
+    //memmove((void *)np->tf->esp, (void *)curproc->tf->esp, curproc->tf->ebp - curproc->tf->esp);
+
+    uint twostacksize = *(uint *)curproc->tf->ebp - curproc->tf->esp;
+    cprintf("twostacksize is 0x%x\n", twostacksize);
+    cprintf("*ebp is 0x%x\n", *(uint *)curproc->tf->ebp);
+    cprintf("ebp is 0x%x\n", curproc->tf->ebp);
+    np->tf->esp = (uint)stack + size - twostacksize;
+    uint topstacksize = *(uint *)curproc->tf->ebp - curproc->tf->ebp;
+    cprintf("topstacksize is 0x%x\n", topstacksize);
+    np->tf->ebp = (uint)stack + size - topstacksize;
+    cprintf("current esp and ebp is 0x%x, 0x%x\n", curproc->tf->esp, curproc->tf->ebp);
+    cprintf("esp and ebp is 0x%x, 0x%x\n", np->tf->esp, np->tf->ebp);
+    cprintf("my esp and ebp is 0x%x, 0x%x\n", (uint)stack + size, (uint)stack + size - (*(uint *)curproc->tf->ebp - curproc->tf->esp));
+    cprintf("my2 esp and ebp is 0x%x, 0x%x\n", (uint)stack + size, (uint)stack + size - (curproc->tf->ebp - curproc->tf->esp));
+    memmove((void *)(np->tf->esp), (const void *)(curproc->tf->esp), twostacksize);
 
     for(i = 0; i < NOFILE; i++)
         if(curproc->ofile[i])
@@ -339,10 +354,11 @@ exit(void)
         }
     } else{
         cprintf("This process has thread, wait it and do nothing\n");
-        acquire(&ptable.lock);
-        curproc->state = RUNNABLE;
-        sched();
-        panic("This should not return to here");
+        wait();
+        //acquire(&ptable.lock);
+        //curproc->state = RUNNABLE;
+        //sched();
+        //panic("This should not return to here");
     }
 }
 // Wait for a child process to exit and return its pid.
