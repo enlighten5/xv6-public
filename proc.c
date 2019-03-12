@@ -248,24 +248,12 @@ int clone(void *stack, int size)
     // Clear %eax so that fork returns 0 in the child.
     np->tf->eax = 0;
     // Set up register Zhenxiao
-    //np->tf->ebp = (int)stack + size;
-    //np->tf->esp = np->tf->ebp - (curproc->tf->ebp - curproc->tf->esp);//2* sizeof(int *);
-    //np->tf->esp = np->tf->ebp - 2* sizeof(int *);
-    //memmove((void *)np->tf->esp, (void *)curproc->tf->esp, curproc->tf->ebp - curproc->tf->esp);
-
-    uint twostacksize = *(uint *)curproc->tf->ebp - curproc->tf->esp;
-    cprintf("twostacksize is 0x%x\n", twostacksize);
-    cprintf("*ebp is 0x%x\n", *(uint *)curproc->tf->ebp);
-    cprintf("ebp is 0x%x\n", curproc->tf->ebp);
-    np->tf->esp = (uint)stack + size - twostacksize;
-    uint topstacksize = *(uint *)curproc->tf->ebp - curproc->tf->ebp;
-    cprintf("topstacksize is 0x%x\n", topstacksize);
-    np->tf->ebp = (uint)stack + size - topstacksize;
-    cprintf("current esp and ebp is 0x%x, 0x%x\n", curproc->tf->esp, curproc->tf->ebp);
-    cprintf("esp and ebp is 0x%x, 0x%x\n", np->tf->esp, np->tf->ebp);
-    cprintf("my esp and ebp is 0x%x, 0x%x\n", (uint)stack + size, (uint)stack + size - (*(uint *)curproc->tf->ebp - curproc->tf->esp));
-    cprintf("my2 esp and ebp is 0x%x, 0x%x\n", (uint)stack + size, (uint)stack + size - (curproc->tf->ebp - curproc->tf->esp));
-    memmove((void *)(np->tf->esp), (const void *)(curproc->tf->esp), twostacksize);
+    uint argsize = 16;
+    //uint argsize = *(uint *)(curproc->tf->ebp) - curproc->tf->ebp;
+    np->tf->ebp = (uint)stack + size - argsize;
+    uint stacksize = curproc->tf->ebp - curproc->tf->esp;
+    np->tf->esp = np->tf->ebp - stacksize;
+    memmove((void *)np->tf->esp, (void *)curproc->tf->esp, argsize + stacksize);
 
     for(i = 0; i < NOFILE; i++)
         if(curproc->ofile[i])
@@ -304,9 +292,9 @@ exit(void)
     // Loop over process table looking for a child who is a thread.
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-        if(p->state != RUNNABLE)
-            continue;
-        if(p->parent == curproc&&p->tid>0)
+        //if(p->state != RUNNABLE)
+            //continue;
+        if(p->parent == curproc&&p->tid>0&&p->state!=ZOMBIE)
             hasThreadChild = 1;
 
     }
@@ -353,12 +341,12 @@ exit(void)
             panic("ZOMBIE exit");
         }
     } else{
-        cprintf("This process has thread, wait it and do nothing\n");
-        wait();
-        //acquire(&ptable.lock);
-        //curproc->state = RUNNABLE;
-        //sched();
-        //panic("This should not return to here");
+        //cprintf("This process has thread, wait it and do nothing\n");
+        //wait();
+        acquire(&ptable.lock);
+        curproc->state = RUNNABLE;
+        sched();
+        panic("This should not return to here");
     }
 }
 // Wait for a child process to exit and return its pid.
