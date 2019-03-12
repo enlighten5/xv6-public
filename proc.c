@@ -342,11 +342,11 @@ exit(void)
         }
     } else{
         //cprintf("This process has thread, wait it and do nothing\n");
-        //wait();
-        acquire(&ptable.lock);
-        curproc->state = RUNNABLE;
-        sched();
-        panic("This should not return to here");
+        wait();
+        //acquire(&ptable.lock);
+        //curproc->state = RUNNABLE;
+        //sched();
+        //panic("This should not return to here");
     }
 }
 // Wait for a child process to exit and return its pid.
@@ -365,15 +365,17 @@ wait(void)
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->parent != curproc)
         continue;
-      if(p->tid > 0)
-        continue;
+      //if(p->tid > 0)
+        //continue;
       havekids = 1;
       if(p->state == ZOMBIE){
         // Found one.
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
-        freevm(p->pgdir);
+        if(p->tid==0){
+          cprintf("freevm in wait\n");
+          freevm(p->pgdir);}
         p->pid = 0;
         p->parent = 0;
         p->name[0] = 0;
