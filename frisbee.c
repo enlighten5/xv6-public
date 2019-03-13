@@ -68,7 +68,7 @@ void* threadfunc(void *arg)
         workpid = 0 ;	
       printf(1," thread %d\n",workpid);
       lock_release(lock);
-      sleep(5);
+      // sleep(5);
     }
     else if(result >= passnum){ //all the work has been completed
       lock_release(lock);
@@ -77,7 +77,7 @@ void* threadfunc(void *arg)
     else //This thread shoud not be working now.
     {
       lock_release(lock);
-      sleep(5);
+      // sleep(5);
     }
   }
 	
