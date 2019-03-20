@@ -4,13 +4,33 @@
 
 #ifndef XV6_PUBLIC_THREAD_H
 #define XV6_PUBLIC_THREAD_H
-
+#include <stdatomic.h>
 int thread_create(void *(*routine)(void*), void *arg);
 
 // Spin Lock
 struct lock_t{
     uint flag;
 };
+
+//mcs
+struct mcs_node
+{
+    int pid;
+    int is_locked;
+    struct mcs_node *next;
+};
+/*
+struct mcs_lock
+{
+    struct msc_node *next;
+    
+};*/
+
+void mcs_lock_init(struct mcs_node *node);
+void mcs_lock_acquire(struct mcs_node *node, int pid);
+void mcs_lock_release(struct mcs_node *node, int pid);
+
+
 void lock_init(struct lock_t *lock);
 void lock_acquire(struct lock_t *lock);
 void lock_release(struct lock_t *lock);

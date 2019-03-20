@@ -11,6 +11,7 @@
 #include "proc.h"
 #include "spinlock.h"
 #include "thread.h"
+#include "stddef.h"
 
 
 int
@@ -93,4 +94,50 @@ void
 seq_lock_release(struct seq_lock_t *lock) {
     lock->counter++;
     xchg(&lock->flag, 0);
+}
+
+//mcs
+void mcs_lock_init(struct mcs_node *node) {
+    node->next = NULL;
+}
+void mcs_lock_acquire(struct mcs_node *node, int pid) {
+    struct mcs_node *new_node = (struct mcs_node *)malloc(sizeof(struct mcs_node));
+    new_node->pid = pid;
+    new_node->next = NULL;
+    new_node->is_locked = 0;
+    struct mcs_node *tail = node;
+    if (node->next == NULL){
+        node->next = new_node;
+        return;
+    }else
+    {
+        while(tail->next != NULL){
+            tail = tail->next;
+        }
+        new_node->is_locked = 1;
+        //fetch_and_store
+        tail->next = new_node;
+        while(new_node->is_locked){
+            ;
+        }
+    }
+}
+void mcs_lock_release(struct mcs_node *node, int pid){
+    //atomic equal
+    struct mcs_node *tail = node;
+    while(tail->next != NULL){
+        tail = tail->next;
+        if (tail->pid == pid){
+            break;
+        }
+    }
+    
+    if(tail->next == NULL){
+        return;
+    }
+    else
+    {
+        tail->next->is_locked = 0;
+    }
+    
 }
